@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["COMMON_MAGIC"],"mod":["entrypoint","file","firmware","flanterm","framebuffer","memmap","module","mp","paging","request","uuid"],"struct":["BaseRevision","RequestsEndMarker","RequestsStartMarker"]};

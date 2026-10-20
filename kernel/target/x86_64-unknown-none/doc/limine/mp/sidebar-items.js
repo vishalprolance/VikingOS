@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MP_FLAG_X2APIC"],"struct":["MpInfo","MpRespData"],"type":["MpGotoFunction"]};

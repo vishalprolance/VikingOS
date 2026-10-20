@@ -1,0 +1,27 @@
+[package]
+name = "viking_kernel"
+version = "0.1.0"
+edition = "2024"
+authors = ["Vishal A Ker"]
+description = "VikingOS x86-64 kernel"
+license = "MIT"
+
+[[bin]]
+name = "viking_kernel"
+path = "src/main.rs"
+test = false
+bench = false
+doctest = false
+
+[dependencies]
+limine = "0.6"
+
+[profile.release]
+opt-level = 2
+debug = false
+lto = true
+panic = "abort"
+
+[profile.dev]
+panic = "abort"
+
