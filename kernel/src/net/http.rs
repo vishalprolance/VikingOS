@@ -20,11 +20,17 @@ pub struct HttpClient;
 
 impl HttpClient {
     /// Format an HTTP/1.1 GET request string
-    pub fn format_get_request(host: &str, path: &str) -> String {
+    pub fn format_get_request(url: &str) -> String {
+        let url = url.trim_start_matches("http://").trim_start_matches("https://");
+        let (host, path) = match url.find('/') {
+            Some(idx) => (&url[..idx], &url[idx..]),
+            None => (url, "/"),
+        };
+
         alloc::format!(
             "GET {} HTTP/1.1\r\n\
              Host: {}\r\n\
-             User-Agent: VikingBrave/1.0 (VikingOS; x86_64; Bare-Metal)\r\n\
+             User-Agent: VikingBrowser/1.0 (VikingOS; x86_64; Bare-Metal)\r\n\
              Accept: text/html,application/xhtml+xml,application/json,*/*\r\n\
              Connection: close\r\n\
              \r\n",

@@ -12,10 +12,12 @@ pub mod icmp;
 pub mod udp;
 pub mod tcp;
 pub mod http;
+pub mod cert;
 pub mod virtio_net;
 
 use alloc::string::String;
 use crate::sync::SpinLock;
+pub use cert::CERT_STORE;
 use ethernet::MacAddress;
 use ipv4::Ipv4Address;
 use http::HttpResponse;
@@ -97,7 +99,7 @@ impl NetStack {
     pub fn http_get(&self, url: &str) -> Result<HttpResponse, &'static str> {
         let clean_url = url.trim();
 
-        // 1. Check for built-in web endpoints & virtual web portal
+        // 1. Check for built-in web endpoints & virtual web portal (Simulated Mode)
         if clean_url == "viking://welcome" || clean_url == "http://viking.os" || clean_url == "http://viking.os/" {
             return Ok(HttpResponse {
                 status_code: 200,
@@ -106,7 +108,7 @@ impl NetStack {
                 content_length: 512,
                 body: String::from(
                     "<html>\r\n\
-                     <h1>Viking Brave Navigator</h1>\r\n\
+                     <h1>Viking Web Navigator</h1>\r\n\
                      <p>Welcome to the VikingOS World Wide Web portal.</p>\r\n\
                      <p>Shields are active: Tracker and ad blocking enabled.</p>\r\n\
                      <p><a href=\"http://viking.os/store\">Open Viking Software Store</a></p>\r\n\
@@ -132,54 +134,16 @@ impl NetStack {
                      </html>"
                 ),
             });
-        } else if clean_url.contains("google.com") {
-            return Ok(HttpResponse {
-                status_code: 200,
-                status_text: String::from("OK"),
-                content_type: String::from("text/html"),
-                content_length: 400,
-                body: String::from(
-                    "<html>\r\n\
-                     <h1>Google Search</h1>\r\n\
-                     <p>Search Results for: VikingOS x86-64 Operating System</p>\r\n\
-                     <p>1. <b>VikingOS Official Repository</b> - Independent Rust Operating System</p>\r\n\
-                     <p>2. <b>Brave Software</b> - Fast, private web browser</p>\r\n\
-                     <p>3. <b>Chromium Architecture</b> - Multi-process layout engine documentation</p>\r\n\
-                     </html>"
-                ),
-            });
-        } else if clean_url.contains("github.com") {
-            return Ok(HttpResponse {
-                status_code: 200,
-                status_text: String::from("OK"),
-                content_type: String::from("text/html"),
-                content_length: 450,
-                body: String::from(
-                    "<html>\r\n\
-                     <h1>GitHub - vishalprolance/VikingOS</h1>\r\n\
-                     <p>An independent, open-source x86-64 operating system written in Rust.</p>\r\n\
-                     <p>Latest Release: v0.1.0-milestone13 (Networking & Web Navigator)</p>\r\n\
-                     <p>Stars: 1,337 | Forks: 142 | Issues: 0</p>\r\n\
-                     </html>"
-                ),
-            });
         }
 
-        // Generic HTTP request over network device
-        let req_text = http::HttpClient::format_get_request(clean_url, "/");
+        // 2. Generic HTTP request over network device
+        // NOTE: The underlying TCP/IP transport is currently a stub.
+        // In simulated mode, we generate the request but cannot receive a real response.
+        let req_text = http::HttpClient::format_get_request(clean_url);
         let mut dev = virtio_net::VIRTIO_NET.lock();
         let _ = dev.transmit(req_text.as_bytes());
 
-        Ok(HttpResponse {
-            status_code: 200,
-            status_text: String::from("OK"),
-            content_type: String::from("text/html"),
-            content_length: 300,
-            body: alloc::format!(
-                "<html><h1>{}</h1><p>HTTP 200 OK — Remote host connected successfully.</p><p>Web content retrieved via VikingOS TCP/IP Stack.</p></html>",
-                clean_url
-            ),
-        })
+        Err("Network transport is currently in simulated mode. Real HTTP responses are not yet supported.")
     }
 }
 
