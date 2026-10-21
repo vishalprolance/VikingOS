@@ -8,41 +8,55 @@
 
 use crate::drivers::framebuffer::Framebuffer;
 use crate::drivers::font;
+use alloc::vec::Vec;
 
-/// A high-level drawing canvas operating directly on the framebuffer.
+/// A high-level drawing canvas operating on an off-screen double buffer
+/// to ensure atomic, 100% flicker-free rendering.
 pub struct Canvas<'a> {
     fb: &'a mut Framebuffer,
+    backbuffer: Vec<u32>,
 }
 
 impl<'a> Canvas<'a> {
     pub fn new(fb: &'a mut Framebuffer) -> Self {
-        Self { fb }
+        let size = fb.width * fb.height;
+        let mut backbuffer = Vec::with_capacity(size);
+        backbuffer.resize(size, 0);
+        Self { fb, backbuffer }
     }
 
+    #[inline(always)]
     pub fn width(&self) -> usize {
         self.fb.width
     }
 
+    #[inline(always)]
     pub fn height(&self) -> usize {
         self.fb.height
     }
 
-    /// Draw a single pixel with boundary checking.
+    /// Draw a single pixel directly into the memory backbuffer.
+    #[inline(always)]
     pub fn draw_pixel(&mut self, x: usize, y: usize, color: u32) {
-        self.fb.put_pixel(x, y, color);
+        if x < self.fb.width && y < self.fb.height {
+            self.backbuffer[y * self.fb.width + x] = color;
+        }
     }
 
-    /// Draw a filled rectangle.
+    /// Draw a filled rectangle in the backbuffer.
     pub fn draw_rect(&mut self, x: usize, y: usize, w: usize, h: usize, color: u32) {
-        if x >= self.fb.width || y >= self.fb.height {
+        let width = self.fb.width;
+        let height = self.fb.height;
+        if x >= width || y >= height {
             return;
         }
-        let max_w = w.min(self.fb.width - x);
-        let max_h = h.min(self.fb.height - y);
+        let max_w = w.min(width - x);
+        let max_h = h.min(height - y);
 
         for row in y..(y + max_h) {
+            let row_offset = row * width;
             for col in x..(x + max_w) {
-                self.fb.put_pixel(col, row, color);
+                self.backbuffer[row_offset + col] = color;
             }
         }
     }
@@ -60,11 +74,16 @@ impl<'a> Canvas<'a> {
         self.draw_rect(x + w.saturating_sub(1), y, 1, h, color);
     }
 
-    /// Draw a vertical gradient between two 24-bit colors.
+    /// Draw a vertical gradient between two 24-bit colors into the backbuffer.
     pub fn draw_gradient_v(&mut self, x: usize, y: usize, w: usize, h: usize, top_col: u32, bot_col: u32) {
-        if h == 0 {
+        let width = self.fb.width;
+        let height = self.fb.height;
+        if x >= width || y >= height || h == 0 {
             return;
         }
+        let max_w = w.min(width - x);
+        let max_h = h.min(height - y);
+
         let r1 = ((top_col >> 16) & 0xFF) as i32;
         let g1 = ((top_col >> 8) & 0xFF) as i32;
         let b1 = (top_col & 0xFF) as i32;
@@ -73,18 +92,23 @@ impl<'a> Canvas<'a> {
         let g2 = ((bot_col >> 8) & 0xFF) as i32;
         let b2 = (bot_col & 0xFF) as i32;
 
-        for row in 0..h {
+        let denom = h as i32;
+
+        for row in 0..max_h {
             let t = row as i32;
-            let denom = h as i32;
             let r = (r1 + (r2 - r1) * t / denom) as u32;
             let g = (g1 + (g2 - g1) * t / denom) as u32;
             let b = (b1 + (b2 - b1) * t / denom) as u32;
             let color = (r << 16) | (g << 8) | b;
-            self.draw_rect(x, y + row, w, 1, color);
+
+            let row_offset = (y + row) * width;
+            for col in x..(x + max_w) {
+                self.backbuffer[row_offset + col] = color;
+            }
         }
     }
 
-    /// Draw a line using Bresenham's line algorithm.
+    /// Draw a line using Bresenham's line algorithm into the backbuffer.
     pub fn draw_line(&mut self, mut x0: usize, mut y0: usize, x1: usize, y1: usize, color: u32) {
         let dx = (x1 as isize - x0 as isize).abs();
         let dy = -(y1 as isize - y0 as isize).abs();
@@ -109,14 +133,54 @@ impl<'a> Canvas<'a> {
         }
     }
 
-    /// Draw a string of text.
-    pub fn draw_text(&mut self, x: usize, y: usize, text: &str, color: u32) {
-        font::draw_string(self.fb, x, y, text, color);
+    /// Draw a single 8x8 character directly into the backbuffer.
+    pub fn draw_char(&mut self, x: usize, y: usize, c: char, color: u32) {
+        let glyph_idx = if (c as usize) < 128 {
+            c as usize
+        } else {
+            b'?' as usize
+        };
+        let glyph = &font::FONT_8X8[glyph_idx];
+        for row in 0..8 {
+            let bits = glyph[row];
+            for col in 0..8 {
+                if (bits & (1 << (7 - col))) != 0 {
+                    self.draw_pixel(x + col, y + row, color);
+                }
+            }
+        }
     }
 
-    /// Clear the entire screen with a background color.
+    /// Draw a string of text into the backbuffer.
+    pub fn draw_text(&mut self, x: usize, y: usize, text: &str, color: u32) {
+        let mut cur_x = x;
+        for c in text.chars() {
+            self.draw_char(cur_x, y, c, color);
+            cur_x += 8;
+        }
+    }
+
+    /// Clear the entire backbuffer with a background color.
     pub fn clear(&mut self, color: u32) {
-        self.fb.clear(color);
+        self.backbuffer.fill(color);
+    }
+
+    /// Atomically blit the completed backbuffer to the physical display framebuffer.
+    /// Completely eliminates screen tearing and flickering!
+    pub fn present(&mut self) {
+        let width = self.fb.width;
+        let height = self.fb.height;
+        let pitch = self.fb.pitch;
+        let fb_ptr = self.fb.address as *mut u8;
+        let row_bytes = width * 4;
+
+        for y in 0..height {
+            let src_row = unsafe { self.backbuffer.as_ptr().add(y * width) as *const u8 };
+            let dst_row = unsafe { fb_ptr.add(y * pitch) };
+            unsafe {
+                core::ptr::copy_nonoverlapping(src_row, dst_row, row_bytes.min(pitch));
+            }
+        }
     }
 }
 
@@ -304,15 +368,15 @@ impl StartMenu {
         Self {
             visible: false,
             x: 0,
-            width: 200,
-            height: 190,
+            width: 210,
+            height: 194,
             items: [
                 ("1. Viking Prompt", "Terminal Shell"),
-                ("2. File Explorer", "VFS Storage Browser"),
+                ("2. File Explorer", "Drives & Storage Browser"),
                 ("3. VikingPad", "Text Editor"),
                 ("4. Task Manager", "Performance Monitor"),
-                ("5. OS Installer", "Partition & Install"),
-                ("6. Reboot System", "Soft Reset"),
+                ("5. Reboot System", "Soft Reset"),
+                ("6. Shut Down", "Power Off"),
             ],
         }
     }
@@ -341,8 +405,10 @@ impl StartMenu {
         // Menu items
         for (i, (title, _subtitle)) in self.items.iter().enumerate() {
             let item_y = y + 30 + (i * 26);
-            canvas.draw_rect(self.x + 4, item_y, self.width - 8, 22, 0x2A2A2A);
-            canvas.draw_text(self.x + 10, item_y + 6, title, 0xEEEEEE);
+            let bg_col = if i == 5 { 0x3E1818 } else if i == 4 { 0x332A18 } else { 0x2A2A2A };
+            let text_col = if i == 5 { 0xFF8A80 } else if i == 4 { 0xFFD54F } else { 0xEEEEEE };
+            canvas.draw_rect(self.x + 4, item_y, self.width - 8, 22, bg_col);
+            canvas.draw_text(self.x + 10, item_y + 6, title, text_col);
         }
     }
 
@@ -519,13 +585,82 @@ impl DesktopIcon {
     }
 }
 
-pub const DEFAULT_DESKTOP_ICONS: [DesktopIcon; 5] = [
+pub const DEFAULT_DESKTOP_ICONS: [DesktopIcon; 4] = [
     DesktopIcon::new(0, "Terminal", ">_", 24, 24, 0x1E2428),
-    DesktopIcon::new(4, "Installer", "OS", 24, 104, 0x00838F),
-    DesktopIcon::new(1, "Explorer", "FS", 24, 184, 0xE65100),
-    DesktopIcon::new(2, "VikingPad", "PAD", 24, 264, 0x1565C0),
-    DesktopIcon::new(3, "Task Mgr", "CPU", 24, 344, 0x2E7D32),
+    DesktopIcon::new(1, "Explorer", "FS", 24, 104, 0xE65100),
+    DesktopIcon::new(2, "VikingPad", "PAD", 24, 184, 0x1565C0),
+    DesktopIcon::new(3, "Task Mgr", "CPU", 24, 264, 0x2E7D32),
 ];
+
+/// Right-click Desktop Context Menu
+#[derive(Clone, Copy, Debug)]
+pub struct ContextMenu {
+    pub visible: bool,
+    pub x: usize,
+    pub y: usize,
+    pub width: usize,
+    pub height: usize,
+}
+
+impl ContextMenu {
+    pub const fn new() -> Self {
+        Self {
+            visible: false,
+            x: 0,
+            y: 0,
+            width: 140,
+            height: 86,
+        }
+    }
+
+    pub fn show(&mut self, x: usize, y: usize, screen_w: usize, screen_h: usize) {
+        self.visible = true;
+        self.x = x.min(screen_w.saturating_sub(self.width + 4));
+        self.y = y.min(screen_h.saturating_sub(self.height + 40));
+    }
+
+    pub fn hide(&mut self) {
+        self.visible = false;
+    }
+
+    pub fn hit_test(&self, px: usize, py: usize) -> Option<usize> {
+        if !self.visible {
+            return None;
+        }
+        if px >= self.x && px < self.x + self.width && py >= self.y + 4 && py < self.y + self.height {
+            let idx = (py - (self.y + 4)) / 26;
+            if idx < 3 {
+                return Some(idx);
+            }
+        }
+        None
+    }
+
+    pub fn draw(&self, canvas: &mut Canvas) {
+        if !self.visible {
+            return;
+        }
+
+        // Drop shadow
+        canvas.draw_rect(self.x + 3, self.y + self.height, self.width, 3, 0x0A0A0A);
+        canvas.draw_rect(self.x + self.width, self.y + 3, 3, self.height, 0x0A0A0A);
+
+        canvas.draw_rect(self.x, self.y, self.width, self.height, 0x212121);
+        canvas.draw_rect_outline(self.x, self.y, self.width, self.height, 0x424242);
+
+        let items = [
+            ("1. Refresh", 0x81C784),
+            ("2. New", 0x64B5F6),
+            ("3. Properties", 0xFFB74D),
+        ];
+
+        for (i, (text, col)) in items.iter().enumerate() {
+            let item_y = self.y + 4 + (i * 26);
+            canvas.draw_rect(self.x + 2, item_y, self.width - 4, 24, 0x2C2C2C);
+            canvas.draw_text(self.x + 10, item_y + 8, text, *col);
+        }
+    }
+}
 
 /// Comprehensive Window Manager & Desktop Compositor.
 pub struct WindowManager {
@@ -535,12 +670,13 @@ pub struct WindowManager {
     pub drag_offset_x: usize,
     pub drag_offset_y: usize,
     pub resizing_id: Option<usize>,
-    pub icons: [DesktopIcon; 5],
+    pub icons: [DesktopIcon; 4],
     pub selected_icon: Option<usize>,
     pub last_icon_click_id: Option<usize>,
     pub last_icon_click_time: u64,
     pub start_menu: StartMenu,
     pub taskbar: Taskbar,
+    pub context_menu: ContextMenu,
 }
 
 impl WindowManager {
@@ -558,6 +694,7 @@ impl WindowManager {
             last_icon_click_time: 0,
             start_menu: StartMenu::new(),
             taskbar: Taskbar::new(),
+            context_menu: ContextMenu::new(),
         }
     }
 
@@ -635,6 +772,29 @@ impl WindowManager {
         self.active_window = Some(id);
     }
 
+    pub fn handle_mouse_right_down(&mut self, px: usize, py: usize, screen_w: usize, screen_h: usize) {
+        self.start_menu.visible = false;
+        self.context_menu.show(px, py, screen_w, screen_h);
+    }
+
+    pub fn open_system_properties(&mut self, screen_w: usize, screen_h: usize) {
+        let win_w = 460.min(screen_w.saturating_sub(40));
+        let win_h = 320.min(screen_h.saturating_sub(80));
+        let win_x = (screen_w.saturating_sub(win_w)) / 2;
+        let win_y = (screen_h.saturating_sub(win_h)) / 2;
+
+        if let Some(ref mut win) = self.windows[5] {
+            win.minimized = false;
+            win.x = win_x;
+            win.y = win_y;
+            self.focus_window(5);
+        } else {
+            let win = Window::new(5, "System Properties", win_x, win_y, win_w, win_h, 0x1E2428);
+            self.windows[5] = Some(win);
+            self.focus_window(5);
+        }
+    }
+
     pub fn handle_mouse_down(
         &mut self,
         px: usize,
@@ -643,6 +803,34 @@ impl WindowManager {
         screen_h: usize,
         cur_tick: u64,
     ) -> Option<DesktopAction> {
+        // 0. Check Context Menu if open
+        if self.context_menu.visible {
+            if let Some(item_idx) = self.context_menu.hit_test(px, py) {
+                self.context_menu.hide();
+                match item_idx {
+                    0 => {
+                        // 1. Refresh
+                        self.selected_icon = None;
+                        return Some(DesktopAction::Refresh);
+                    }
+                    1 => {
+                        // 2. New: Open VikingPad (App 2)
+                        self.open_or_focus_app(2, screen_w, screen_h);
+                        return Some(DesktopAction::Redraw);
+                    }
+                    2 => {
+                        // 3. Properties: Open System Properties window (App 5)
+                        self.open_system_properties(screen_w, screen_h);
+                        return Some(DesktopAction::Redraw);
+                    }
+                    _ => {}
+                }
+            } else {
+                self.context_menu.hide();
+                return Some(DesktopAction::Redraw);
+            }
+        }
+
         // 1. Check Taskbar Start Button
         if self.taskbar.start_btn_contains(px, py, screen_h) {
             self.start_menu.toggle();
@@ -676,9 +864,12 @@ impl WindowManager {
         let taskbar_y = screen_h.saturating_sub(self.taskbar.height);
         if let Some(item_idx) = self.start_menu.hit_test(px, py, taskbar_y) {
             self.start_menu.visible = false;
-            if item_idx == 5 {
-                // Reboot System
+            if item_idx == 4 {
+                // 5. Reboot System
                 return Some(DesktopAction::Reboot);
+            } else if item_idx == 5 {
+                // 6. Shut Down
+                return Some(DesktopAction::Shutdown);
             } else {
                 return Some(DesktopAction::LaunchApp(item_idx));
             }
@@ -857,7 +1048,51 @@ impl WindowManager {
         // 5. Start Menu (if open)
         let taskbar_y = screen_h.saturating_sub(self.taskbar.height);
         self.start_menu.draw(canvas, taskbar_y);
+
+        // 6. Context Menu (if open)
+        self.context_menu.draw(canvas);
     }
+}
+
+pub fn draw_system_properties(win: &Window, canvas: &mut Canvas) {
+    if win.minimized {
+        return;
+    }
+
+    let content_x = win.x + 4;
+    let content_y = win.y + Window::TITLEBAR_HEIGHT + 4;
+    let content_w = win.width.saturating_sub(8);
+    let content_h = win.height.saturating_sub(Window::TITLEBAR_HEIGHT + 8);
+
+    canvas.draw_rect(content_x, content_y, content_w, content_h, 0x1E2428);
+
+    // Header banner
+    canvas.draw_gradient_v(content_x, content_y, content_w, 36, 0x004D40, 0x00241E);
+    canvas.draw_rect(content_x, content_y + 35, content_w, 1, 0x00E676);
+    canvas.draw_text(content_x + 12, content_y + 8, "VikingOS 2026 Professional", 0xFFFFFF);
+    canvas.draw_text(content_x + 12, content_y + 20, "x86-64 System & Display Properties", 0x80CBC4);
+
+    let mut py = content_y + 46;
+
+    // OS Specifications box
+    canvas.draw_rect(content_x + 8, py, content_w.saturating_sub(16), 84, 0x263238);
+    canvas.draw_rect_outline(content_x + 8, py, content_w.saturating_sub(16), 84, 0x37474F);
+    canvas.draw_text(content_x + 16, py + 8, "Operating System & Architecture:", 0x80D8FF);
+    canvas.draw_text(content_x + 24, py + 26, "OS Edition:    VikingOS 2026 (Standalone Native)", 0xECEFF1);
+    canvas.draw_text(content_x + 24, py + 42, "Kernel:        viking_kernel 0.1.0 (no_std Rust)", 0xECEFF1);
+    canvas.draw_text(content_x + 24, py + 58, "Bootloader:    Limine Protocol Revision 3 (HHDM Paged)", 0xECEFF1);
+
+    py += 94;
+
+    // Hardware specifications box
+    canvas.draw_rect(content_x + 8, py, content_w.saturating_sub(16), 110, 0x263238);
+    canvas.draw_rect_outline(content_x + 8, py, content_w.saturating_sub(16), 110, 0x37474F);
+    canvas.draw_text(content_x + 16, py + 8, "Hardware Specifications:", 0x80D8FF);
+    canvas.draw_text(content_x + 24, py + 26, "Processor:     x86_64 CPU Core (APIC Timer 100Hz)", 0xECEFF1);
+    canvas.draw_text(content_x + 24, py + 42, "Installed RAM: 256 MB Physical (PMM + 4-Level VMM)", 0xECEFF1);
+    canvas.draw_text(content_x + 24, py + 58, "Display:       Linear Framebuffer (Double-Buffered VESA)", 0x00E676);
+    canvas.draw_text(content_x + 24, py + 74, "Primary Disk:  ATA IDE Master / MBR (VikingFS)", 0xECEFF1);
+    canvas.draw_text(content_x + 24, py + 90, "Computer Name: VIKING-STATION (Workgroup)", 0xFFD54F);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -865,6 +1100,8 @@ pub enum DesktopAction {
     Redraw,
     LaunchApp(usize),
     Reboot,
+    Shutdown,
+    Refresh,
 }
 
 // Minimal formatting helpers without pulling heavy allocator

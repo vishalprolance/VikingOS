@@ -511,17 +511,17 @@ extern "C" fn _start() -> ! {
             term_app.execute("mem");
             term_app.execute("ls");
 
-            let explorer_app = apps::file_explorer::FileExplorerApp::new();
+            let mut explorer_app = apps::file_explorer::FileExplorerApp::new();
             let mut pad_app = apps::vikingpad::VikingPadApp::new();
-            let task_mgr_app = apps::task_manager::TaskManagerApp::new();
+            let mut task_mgr_app = apps::task_manager::TaskManagerApp::new();
 
-            // Note: In accordance with user requirement, as soon as OS starts, do NOT open all applications.
             // Start with a clean desktop featuring double-clickable desktop icons and the taskbar!
             let free_kb = crate::memory::pmm::get_stats().free_bytes / 1024;
             wm.render(&mut canvas, screen_w, screen_h, 0, free_kb);
 
             // Draw initial mouse cursor at center screen
             drivers::mouse::draw_cursor(&mut canvas, screen_w / 2, screen_h / 2);
+            canvas.present();
 
             kprintln!("[  OK  ] GUI Desktop, Icons & Taskbar rendered (clean startup)");
 
@@ -537,6 +537,7 @@ extern "C" fn _start() -> ! {
             let mut prev_mouse_x = screen_w / 2;
             let mut prev_mouse_y = screen_h / 2;
             let mut prev_left_btn = false;
+            let mut prev_right_btn = false;
 
             loop {
                 let mut needs_redraw = false;
@@ -594,6 +595,7 @@ extern "C" fn _start() -> ! {
                 let mx = cur_mouse.x;
                 let my = cur_mouse.y;
                 let left_btn = cur_mouse.left_button;
+                let right_btn = cur_mouse.right_button;
 
                 if mx != prev_mouse_x || my != prev_mouse_y {
                     prev_mouse_x = mx;
@@ -602,6 +604,16 @@ extern "C" fn _start() -> ! {
                     needs_redraw = true;
                 }
 
+                // Handle Right Click (Context Menu)
+                if right_btn && !prev_right_btn {
+                    prev_right_btn = true;
+                    wm.handle_mouse_right_down(mx, my, screen_w, screen_h);
+                    needs_redraw = true;
+                } else if !right_btn && prev_right_btn {
+                    prev_right_btn = false;
+                }
+
+                // Handle Left Click
                 if left_btn && !prev_left_btn {
                     prev_left_btn = true;
                     if let Some(action) = wm.handle_mouse_down(mx, my, screen_w, screen_h, cur_tick) {
@@ -613,6 +625,36 @@ extern "C" fn _start() -> ! {
                             }
                             drivers::gui::DesktopAction::Reboot => {
                                 crate::arch::io::outb(0x64, 0xFE);
+                            }
+                            drivers::gui::DesktopAction::Shutdown => {
+                                system_shutdown(&mut canvas);
+                            }
+                            drivers::gui::DesktopAction::Refresh => {
+                                needs_redraw = true;
+                            }
+                        }
+                    }
+
+                    // Forward click into active window content
+                    if let Some(act_id) = wm.active_window {
+                        if let Some(win) = &wm.windows[act_id] {
+                            if !win.minimized && win.contains(mx, my) {
+                                let titlebar_h = drivers::gui::Window::TITLEBAR_HEIGHT;
+                                if my >= win.y + titlebar_h {
+                                    let rel_x = mx.saturating_sub(win.x + 4);
+                                    let rel_y = my.saturating_sub(win.y + titlebar_h + 4);
+                                    match act_id {
+                                        1 => {
+                                            explorer_app.handle_click(rel_x, rel_y);
+                                            needs_redraw = true;
+                                        }
+                                        3 => {
+                                            task_mgr_app.handle_click(rel_x, rel_y);
+                                            needs_redraw = true;
+                                        }
+                                        _ => {}
+                                    }
+                                }
                             }
                         }
                     }
@@ -642,6 +684,7 @@ extern "C" fn _start() -> ! {
                 // 4. Periodic system updates (every ~20 ticks = 200ms)
                 if cur_tick >= last_tick + 20 {
                     last_tick = cur_tick;
+                    task_mgr_app.update(cur_tick);
                     needs_redraw = true;
                 }
 
@@ -664,6 +707,7 @@ extern "C" fn _start() -> ! {
                                         2 => pad_app.draw(w, &mut canvas),
                                         3 => task_mgr_app.draw(w, &mut canvas),
                                         4 => installer.draw(w, &mut canvas),
+                                        5 => drivers::gui::draw_system_properties(w, &mut canvas),
                                         _ => {}
                                     }
                                 }
@@ -680,6 +724,7 @@ extern "C" fn _start() -> ! {
                                     2 => pad_app.draw(w, &mut canvas),
                                     3 => task_mgr_app.draw(w, &mut canvas),
                                     4 => installer.draw(w, &mut canvas),
+                                    5 => drivers::gui::draw_system_properties(w, &mut canvas),
                                     _ => {}
                                 }
                             }
@@ -690,8 +735,14 @@ extern "C" fn _start() -> ! {
                     let taskbar_y = screen_h.saturating_sub(wm.taskbar.height);
                     wm.start_menu.draw(&mut canvas, taskbar_y);
 
+                    // Redraw Context Menu if open
+                    wm.context_menu.draw(&mut canvas);
+
                     // Redraw mouse cursor at current mouse position
                     drivers::mouse::draw_cursor(&mut canvas, mx, my);
+
+                    // ATOMIC PRESENTATION (DOUBLE BUFFERING - NO FLICKER!)
+                    canvas.present();
                 }
 
                 // Sleep until next interrupt
@@ -723,6 +774,50 @@ fn thread_b() {
         kprintln!("[Thread B] Multitasking tick — Thread B active");
         for _ in 0..50_000_000 {
             core::hint::spin_loop();
+        }
+    }
+}
+
+fn system_shutdown(canvas: &mut drivers::gui::Canvas) -> ! {
+    let w = canvas.width();
+    let h = canvas.height();
+    canvas.clear(0x0A0F12);
+
+    let box_w = 440;
+    let box_h = 170;
+    let box_x = (w.saturating_sub(box_w)) / 2;
+    let box_y = (h.saturating_sub(box_h)) / 2;
+    canvas.draw_rect(box_x, box_y, box_w, box_h, 0x1E2428);
+    canvas.draw_rect_outline(box_x, box_y, box_w, box_h, 0x00E676);
+
+    canvas.draw_gradient_v(box_x, box_y, box_w, 28, 0x263238, 0x191C1E);
+    canvas.draw_text(box_x + 16, box_y + 8, "VikingOS — System Shutdown", 0xFFFFFF);
+
+    canvas.draw_text(box_x + 24, box_y + 48, "Flushing storage buffers & unmounting VikingFS...", 0x80D8FF);
+    canvas.draw_text(box_x + 24, box_y + 72, "Filesystem synchronized safely.", 0x00E676);
+    canvas.draw_text(box_x + 24, box_y + 104, "It is now safe to turn off your computer.", 0xFFD54F);
+    canvas.draw_text(box_x + 24, box_y + 132, "Powering off / Halting CPU...", 0x90A4AE);
+    canvas.present();
+
+    for _ in 0..10_000_000 {
+        core::hint::spin_loop();
+    }
+
+    unsafe {
+        // QEMU ACPI poweroff
+        crate::arch::io::outw(0x604, 0x2000);
+        // Older QEMU / Bochs ACPI poweroff
+        crate::arch::io::outw(0xB004, 0x2000);
+        // VirtualBox poweroff
+        crate::arch::io::outw(0x4004, 0x3400);
+        // QEMU isa-debug-exit
+        crate::arch::io::outb(0x501, 0x31);
+    }
+
+    arch::interrupts::disable();
+    loop {
+        unsafe {
+            core::arch::asm!("cli; hlt");
         }
     }
 }

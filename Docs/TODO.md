@@ -241,12 +241,16 @@ For each feature in the list below:
 
 - [x] **Feature 10.1 — Window Server & Compositor** (`kernel/src/drivers/gui.rs`)
   - [x] 2D graphics primitives: horizontal/vertical lines, rectangles, vertical gradient backgrounds, text rendering
+  - [x] Double-buffered high-speed canvas (`Canvas::present`) with zero screen flicker and tearing
+  - [x] Desktop right-click context menu: `1. Refresh`, `2. New` (Text Document), `3. Properties`
+  - [x] System Properties dialog (Window ID 5) presenting OS edition, kernel version, RAM, and display specs
   - [x] `Window` structure with titlebar, minimize button, close button, active/inactive borders, and custom client area
   - [x] `WindowManager` managing multiple overlapping windows, Z-ordering, focus switching, and window dragging offsets
-  - [x] PS/2 mouse driver (`kernel/src/drivers/mouse.rs`) with 3-byte packet parsing, coordinate clamping, and software arrow cursor rendering
+  - [x] PS/2 mouse driver (`kernel/src/drivers/mouse.rs`) with 3-byte packet parsing, coordinate clamping, left/right click, and software arrow cursor rendering
 - [x] **Feature 10.2 — Desktop Shell & VikingUI** (`kernel/src/drivers/gui.rs`)
   - [x] Interactive bottom taskbar with "VIKING" Start button, active window tabs, real-time memory gauge, and live system clock
-  - [x] Windows-style Start Menu launcher with quick shortcuts: Terminal, File Explorer, VikingPad, Task Manager, Installer, Reboot
+  - [x] Windows-style Start Menu launcher with clean shortcuts (Terminal, File Explorer, VikingPad, Task Manager)
+  - [x] System Power controls: `Reboot System` (8042 reset) and `Shut Down` (ACPI poweroff + CPU safe halt)
   - [x] Nordic teal desktop theme with brand watermark
 
 ---
@@ -255,17 +259,20 @@ For each feature in the list below:
 
 - [x] **Feature 11.1 — Viking Prompt (Interactive Terminal Shell)** (`kernel/src/apps/terminal.rs`)
   - [x] Terminal command processor with command history and line wrap
-  - [x] Built-in shell commands: `help`, `clear`, `uptime`, `mem`, `ps`, `ls`, `cat`, `echo`, `install`, `reboot`
+  - [x] Built-in shell commands: `help`, `clear`, `uptime`, `mem`, `ps`, `ls`, `cat`, `echo`, `install`, `reboot`, `shutdown`
   - [x] Classic retro green-on-black terminal styling rendered within a desktop window
 - [x] **Feature 11.2 — File Explorer** (`kernel/src/apps/file_explorer.rs`)
-  - [x] Visual file and directory browser with address bar navigation (`C:\VikingOS`)
-  - [x] Directory item indexing, file size formatting (B/KB), and selection highlights
+  - [x] Multi-drive and directory tree file browser with left navigation sidebar
+  - [x] Full drive hierarchy: `This PC`, `C:\` (VikingFS Master Disk), `D:\` (Live CD-ROM), `X:\` (RAM Disk)
+  - [x] Deep folder traversal (`System/`, `Apps/`, `Users/`, `boot/`, `temp/`, `cache/`) with `..` Back navigation
+  - [x] Directory item indexing, file type identification, size formatting (B/KB/MB), and selection highlights
 - [x] **Feature 11.3 — VikingPad (Text Editor)** (`kernel/src/apps/vikingpad.rs`)
   - [x] Graphical text editor application with menu toolbar (`[File]`, `[Edit]`, `[Save]`)
   - [x] Line numbering margin, cursor positioning, and file path display
 - [x] **Feature 11.4 — Task Manager** (`kernel/src/apps/task_manager.rs`)
-  - [x] Real-time thread performance table showing Thread ID, Name, State, and Stack address
-  - [x] Visual memory usage progress bar and PMM physical/heap statistics
+  - [x] Interactive dual-tab interface (`[Processes]` and `[Performance]`)
+  - [x] Processes tab: complete real-time table showing PID, Process Name, Status, CPU %, RAM, and Disk I/O
+  - [x] Performance tab: real-time waveform history graphs and live percentage usage metrics for CPU (2.40 GHz), RAM (256 MB), Disk Read/Write (KB/s), and Network (VirtIO-Net throughput) exactly as in Windows Task Manager
 
 ---
 

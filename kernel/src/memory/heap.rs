@@ -18,8 +18,8 @@ use crate::sync::SpinLock;
 /// Virtual base address for the kernel heap arena.
 pub const HEAP_START: u64 = 0xFFFF_A000_0000_0000;
 
-/// Initial size of the kernel heap (2 MiB = 512 frames).
-pub const HEAP_INITIAL_SIZE: usize = 2 * 1024 * 1024;
+/// Initial size of the kernel heap (16 MiB = 4096 frames).
+pub const HEAP_INITIAL_SIZE: usize = 16 * 1024 * 1024;
 
 /// Maximum size of the kernel heap (128 MiB).
 pub const HEAP_MAX_SIZE: usize = 128 * 1024 * 1024;

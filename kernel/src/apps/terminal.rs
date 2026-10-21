@@ -42,7 +42,7 @@ impl TerminalApp {
 
         match cmd {
             "help" => {
-                self.history.push(String::from("Commands: help, clear, uptime, mem, ps, ls, cat <f>, install, reboot"));
+                self.history.push(String::from("Commands: help, clear, uptime, mem, ps, ls, cat <f>, install, reboot, shutdown"));
             }
             "clear" => {
                 self.history.clear();
@@ -96,6 +96,19 @@ impl TerminalApp {
                 unsafe {
                     // Standard 8042 keyboard controller reset pulse
                     crate::arch::io::outb(0x64, 0xFE);
+                }
+            }
+            "shutdown" | "poweroff" => {
+                self.history.push(String::from("Shutting down VikingOS..."));
+                unsafe {
+                    crate::arch::io::outw(0x604, 0x2000);
+                    crate::arch::io::outw(0xB004, 0x2000);
+                    crate::arch::io::outw(0x4004, 0x3400);
+                    crate::arch::io::outb(0x501, 0x31);
+                    crate::arch::interrupts::disable();
+                    loop {
+                        core::arch::asm!("cli; hlt");
+                    }
                 }
             }
             _ => {

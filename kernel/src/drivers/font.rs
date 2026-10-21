@@ -90,7 +90,7 @@ const fn build_font() -> [[u8; 8]; 128] {
     font
 }
 
-const FONT_8X8: [[u8; 8]; 128] = build_font();
+pub const FONT_8X8: [[u8; 8]; 128] = build_font();
 
 /// Render a single character to the framebuffer.
 pub fn draw_char(fb: &mut Framebuffer, x: usize, y: usize, c: char, color: u32) {
@@ -112,6 +112,7 @@ pub fn draw_char(fb: &mut Framebuffer, x: usize, y: usize, c: char, color: u32) 
 }
 
 /// Render a string of characters to the framebuffer.
+#[allow(dead_code)]
 pub fn draw_string(fb: &mut Framebuffer, x: usize, y: usize, s: &str, color: u32) {
     let mut current_x = x;
     for c in s.chars() {
