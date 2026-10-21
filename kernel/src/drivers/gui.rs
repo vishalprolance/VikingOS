@@ -375,7 +375,7 @@ impl StartMenu {
                 ("2. File Explorer", "Drives & Storage Browser"),
                 ("3. VikingPad", "Text Editor"),
                 ("4. Task Manager", "Performance Monitor"),
-                ("5. Brave Browser", "Web Navigator"),
+                ("5. Viking Browser", "Web Navigator"),
                 ("6. Software Center", "App Store"),
                 ("7. Reboot System", "Soft Reset"),
                 ("8. Shut Down", "Power Off"),
@@ -592,7 +592,7 @@ pub const DEFAULT_DESKTOP_ICONS: [DesktopIcon; 6] = [
     DesktopIcon::new(1, "Explorer", "FS", 24, 104, 0xE65100),
     DesktopIcon::new(2, "VikingPad", "PAD", 24, 184, 0x1565C0),
     DesktopIcon::new(3, "Task Mgr", "CPU", 24, 264, 0x2E7D32),
-    DesktopIcon::new(6, "Brave Web", "WEB", 24, 344, 0xFF5500),
+    DesktopIcon::new(6, "Viking Web", "WEB", 24, 344, 0x0288D1),
     DesktopIcon::new(7, "App Store", "APP", 24, 424, 0x7B1FA2),
 ];
 
@@ -739,7 +739,7 @@ impl WindowManager {
                 2 => Window::new(2, "VikingPad", 130, 100, 500.min(screen_w.saturating_sub(140)), 320.min(screen_h.saturating_sub(150)), 0xFAFAFA),
                 3 => Window::new(3, "Task Manager", 170, 130, 500.min(screen_w.saturating_sub(180)), 340.min(screen_h.saturating_sub(160)), 0x1E2428),
                 4 => Window::new(4, "VikingOS Installer", 70, 50, 540.min(screen_w.saturating_sub(80)), 400.min(screen_h.saturating_sub(90)), 0xF5F7F8),
-                6 => Window::new(6, "Brave Browser", 50, 35, 680.min(screen_w.saturating_sub(60)), 460.min(screen_h.saturating_sub(75)), 0x1A1B20),
+                6 => Window::new(6, "Viking Browser", 50, 35, 680.min(screen_w.saturating_sub(60)), 460.min(screen_h.saturating_sub(75)), 0x1A1B20),
                 7 => Window::new(7, "Software Center", 90, 60, 620.min(screen_w.saturating_sub(100)), 420.min(screen_h.saturating_sub(100)), 0x1E2428),
                 _ => return,
             };
@@ -877,7 +877,7 @@ impl WindowManager {
                 // 8. Shut Down
                 return Some(DesktopAction::Shutdown);
             } else if item_idx == 4 {
-                // 5. Brave Browser
+                // 5. Viking Browser
                 return Some(DesktopAction::LaunchApp(6));
             } else if item_idx == 5 {
                 // 6. Software Center

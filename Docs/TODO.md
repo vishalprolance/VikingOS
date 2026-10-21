@@ -29,7 +29,7 @@ This document tracks all completed and planned features for **VikingOS**, an ind
 | **M11** | **System Applications** | ✅ Completed | Viking Prompt shell, File Explorer, VikingPad editor, Task Manager |
 | **M12** | **Installer & Persistence** | ✅ Completed | MBR partitioner, native VikingFS block filesystem, guided disk installer wizard |
 | **M13** | **Network Stack & VirtIO-Net** | ✅ Completed | VirtIO Ethernet driver, Ethernet II, ARP, IPv4, ICMP, UDP, TCP, NetStack |
-| **M14** | **Brave Web Browser** | ✅ Completed | Tabbed web browser, URL omnibox, Brave Shields, HTML layout renderer |
+| **M14** | **Viking Web Browser** | ✅ Completed | Tabbed web browser, URL omnibox, Viking Shields, SSL/TLS trust store, HTML layout renderer |
 | **M15** | **App Store & Downloader** | ✅ Completed | Software Center, HTTP package downloader, one-click install to VikingFS |
 
 ---
@@ -320,12 +320,12 @@ For each feature in the list below:
 
 ---
 
-### Milestone 14: Desktop Web Browser ("Viking Brave")
+### Milestone 14: Desktop Web Browser ("Viking Browser")
 
-- [x] **Feature 14.1 — Brave-Style UI Compositing** (`kernel/src/apps/browser.rs`)
-  - [x] Sleek dark-mode theme (`#1A1B20`), multi-tab browsing strip, and orange Brave lion brand accent
-  - [x] Interactive Omnibox URL address bar with SSL padlock security indicator (`LOCK`)
-  - [x] Navigation toolbar: Back (`<`), Forward (`>`), Reload (`R`), and Brave Shield toggle badge
+- [x] **Feature 14.1 — Viking Browser UI Compositing** (`kernel/src/apps/browser.rs`)
+  - [x] Sleek dark-mode theme (`#1A1B20`), multi-tab browsing strip, and Viking Blue brand accent
+  - [x] Interactive Omnibox URL address bar with SSL/TLS Root CA security indicator (`LOCK` / `HTTP` / `VIK`)
+  - [x] Navigation toolbar: Back (`<`), Forward (`>`), Reload (`R`), and Viking Shield toggle badge
   - [x] Quick Bookmarks toolbar: `[ Viking Hub ]`, `[ App Store ]`, `[ Google ]`, `[ GitHub ]`
 - [x] **Feature 14.2 — HTML Layout & Hyperlink Engine** (`kernel/src/apps/browser.rs`)
   - [x] HTML markup parser and layout engine rendering titles, headings, and styled paragraphs

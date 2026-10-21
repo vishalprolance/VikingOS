@@ -1,7 +1,7 @@
-// VikingOS Kernel — Brave-Style Web Navigator & Browser (Milestone 14)
+// VikingOS Kernel — Viking Web Navigator & Browser (Milestone 14)
 //
 // Modern desktop web browser featuring tabbed browsing, URL omnibox,
-// Brave Privacy Shields, HTML layout renderer, and HTTP network fetching.
+// Viking Privacy Shields, SSL/TLS certificate verification, and HTML rendering.
 
 #![allow(dead_code)]
 
@@ -9,6 +9,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use crate::drivers::gui::{Canvas, Window};
 use crate::net::NET_STACK;
+use crate::net::cert::{CERT_STORE, CertValidationStatus};
 
 #[derive(Clone, Debug)]
 pub struct WebTab {
@@ -86,15 +87,32 @@ impl BrowserApp {
         self.page_content.clear();
         self.links.clear();
 
+        // Verify SSL/TLS Certificate status for secure URLs
+        let cert_info = {
+            let mut store = CERT_STORE.lock();
+            match store.verify_url(url) {
+                CertValidationStatus::ValidSecure { ca_name, algorithm } => {
+                    alloc::format!(" [TLS 1.3: {} ({})]", ca_name, algorithm)
+                }
+                CertValidationStatus::UntrustedAuthority => {
+                    alloc::format!(" [TLS Warning: Untrusted CA]")
+                }
+                CertValidationStatus::ExpiredCertificate => {
+                    alloc::format!(" [TLS Error: Certificate Expired]")
+                }
+                _ => alloc::format!(""),
+            }
+        };
+
         // Perform HTTP GET request via kernel NetStack
         let net = NET_STACK.lock();
         match net.http_get(url) {
             Ok(resp) => {
-                self.status_message = alloc::format!("HTTP {} {} — {} bytes", resp.status_code, resp.status_text, resp.content_length);
+                self.status_message = alloc::format!("HTTP {} {} — {} bytes{}", resp.status_code, resp.status_text, resp.content_length, cert_info);
                 self.parse_and_layout_html(&resp.body);
             }
             Err(err) => {
-                self.status_message = alloc::format!("Network Error: {}", err);
+                self.status_message = alloc::format!("Network Error: {}{}", err, cert_info);
                 self.page_title = String::from("Connection Failed");
                 self.page_content.push(alloc::format!("Could not reach server: {}", url));
                 self.page_content.push(String::from("Check if network adapter is connected."));
@@ -181,10 +199,10 @@ impl BrowserApp {
                 self.navigate(&u);
                 return None;
             }
-            // [ 🦁 ] Brave Shield toggle (x: 92..116)
+            // [ 🛡️ ] Viking Shield toggle (x: 92..116)
             if rel_x >= 92 && rel_x <= 116 {
                 self.shields_blocked_count += 1;
-                self.status_message = alloc::format!("Brave Shield: {} trackers blocked", self.shields_blocked_count);
+                self.status_message = alloc::format!("Viking Shield: {} trackers blocked", self.shields_blocked_count);
                 return None;
             }
 
@@ -275,7 +293,7 @@ impl BrowserApp {
         let content_w = win.width.saturating_sub(8);
         let content_h = win.height.saturating_sub(Window::TITLEBAR_HEIGHT + 8);
 
-        // Clear background with sleek Brave Dark Mode (#1A1B20)
+        // Clear background with sleek Viking Dark Mode (#1A1B20)
         canvas.draw_rect(content_x, content_y, content_w, content_h, 0x1A1B20);
 
         // ── 1. Tab Strip (y: content_y .. content_y + 24) ────────────
@@ -288,7 +306,7 @@ impl BrowserApp {
 
             canvas.draw_rect(tab_x, content_y + 3, tab_w, 21, tab_bg);
             if i == self.active_tab {
-                canvas.draw_rect(tab_x, content_y + 3, tab_w, 2, 0xFF5500); // Brave Orange accent
+                canvas.draw_rect(tab_x, content_y + 3, tab_w, 2, 0x00A8FF); // Viking Blue accent
             }
             canvas.draw_text(tab_x + 8, content_y + 8, &tab.title, tab_fg);
             tab_x += tab_w + 4;
@@ -308,28 +326,42 @@ impl BrowserApp {
         canvas.draw_rect(content_x + 58, nav_y + 4, 22, 22, 0x2B2D35);
         canvas.draw_text(content_x + 63, nav_y + 8, "R", 0x81C784);
 
-        // Brave Lion / Shield Icon badge
-        canvas.draw_rect(content_x + 86, nav_y + 4, 26, 22, 0xFF5500); // Lion Orange
-        canvas.draw_text(content_x + 91, nav_y + 8, "SH", 0xFFFFFF);
+        // Viking Shield Icon badge
+        canvas.draw_rect(content_x + 86, nav_y + 4, 26, 22, 0x0288D1); // Viking Blue
+        canvas.draw_text(content_x + 91, nav_y + 8, "VK", 0xFFFFFF);
 
         // Omnibox URL bar
         let omni_x = content_x + 118;
         let omni_w = content_w.saturating_sub(180);
         let omni_bg = if self.is_editing_url { 0x0E0F12 } else { 0x16171B };
-        let omni_border = if self.is_editing_url { 0xFF5500 } else { 0x3E424D };
+        let omni_border = if self.is_editing_url { 0x00A8FF } else { 0x3E424D };
 
         canvas.draw_rect(omni_x, nav_y + 3, omni_w, 24, omni_bg);
         canvas.draw_rect_outline(omni_x, nav_y + 3, omni_w, 24, omni_border);
 
-        // Security lock icon and URL text
-        canvas.draw_text(omni_x + 6, nav_y + 8, "LOCK", 0x00E676);
+        // SSL Certificate / Protocol indicator
+        let target_for_cert = if self.is_editing_url { &self.url_input_buffer } else { &self.current_url };
+        let cert_status = {
+            let mut store = CERT_STORE.lock();
+            store.verify_url(target_for_cert)
+        };
+
+        let (lock_text, lock_color) = match cert_status {
+            CertValidationStatus::ValidSecure { .. } => ("LOCK", 0x00E676),
+            CertValidationStatus::InternalScheme => ("VIK ", 0x00A8FF),
+            CertValidationStatus::InsecureHttp => ("HTTP", 0xFFB300),
+            CertValidationStatus::UntrustedAuthority | CertValidationStatus::ExpiredCertificate => ("WARN", 0xFF5252),
+            CertValidationStatus::InvalidUrl => ("INFO", 0x8E929B),
+        };
+
+        canvas.draw_text(omni_x + 6, nav_y + 8, lock_text, lock_color);
         let display_url = if self.is_editing_url { &self.url_input_buffer } else { &self.current_url };
         canvas.draw_text(omni_x + 42, nav_y + 8, display_url, 0xFFFFFF);
 
         if self.is_editing_url {
             let cursor_x = omni_x + 42 + (display_url.len() * 8);
             if cursor_x < omni_x + omni_w - 8 {
-                canvas.draw_rect(cursor_x, nav_y + 6, 2, 16, 0x00E676);
+                canvas.draw_rect(cursor_x, nav_y + 6, 2, 16, 0x00A8FF);
             }
         }
 
@@ -426,7 +458,7 @@ impl BrowserApp {
         canvas.draw_text(content_x + 10, status_y + 6, &self.status_message, 0x81C784);
 
         // Shield status badge
-        let shield_msg = alloc::format!("Shield: Active ({} Blocked)", self.shields_blocked_count);
+        let shield_msg = alloc::format!("Viking Shield: Active ({} Blocked)", self.shields_blocked_count);
         let s_x = content_x + content_w.saturating_sub(shield_msg.len() * 8 + 14);
         canvas.draw_text(s_x, status_y + 6, &shield_msg, 0xFF9800);
     }

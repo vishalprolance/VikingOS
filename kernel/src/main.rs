@@ -583,7 +583,7 @@ extern "C" fn _start() -> ! {
                         pad_app.handle_key(c);
                         needs_redraw = true;
                     } else if let Some(6) = wm.active_window {
-                        // Brave Browser is active
+                        // Viking Browser is active
                         browser_app.handle_key(c);
                         needs_redraw = true;
                     } else if c == '\n' || c == '\r' {
