@@ -1,6 +1,6 @@
-D:\GitHub\VikingOS\kernel\target\x86_64-unknown-none\debug\build\viking_kernel/fd286c5bb2d46a85\out\viking_kernel-fd286c5bb2d46a85.d: src\main.rs src\arch\mod.rs src\arch\gdt.rs src\arch\idt.rs src\arch\exceptions.rs src\arch\io.rs src\arch\interrupts.rs src\arch\apic.rs src\arch\interrupt_dispatcher.rs src\arch\context.rs src\arch\ioapic.rs src\memory\mod.rs src\memory\pmm.rs src\memory\vmm.rs src\memory\heap.rs src\serial.rs src\sync\mod.rs src\sync\scheduler.rs src\sync\spinlock.rs src\thread.rs src\drivers\mod.rs src\drivers\keyboard.rs src\drivers\mouse.rs src\drivers\pci.rs src\drivers\framebuffer.rs src\drivers\font.rs src\drivers\console.rs src\drivers\gui.rs src\fs\mod.rs src\fs\ramdisk.rs src\fs\vfs.rs src\fs\vikingfs.rs src\process\mod.rs src\syscall\mod.rs src\storage\mod.rs src\storage\partition.rs src\storage\ata.rs src\apps\mod.rs src\apps\terminal.rs src\apps\file_explorer.rs src\apps\vikingpad.rs src\apps\task_manager.rs src\installer\mod.rs
+D:\GitHub\VikingOS\kernel\target\x86_64-unknown-none\debug\build\viking_kernel/fd286c5bb2d46a85\out\viking_kernel-fd286c5bb2d46a85.d: src\main.rs src\arch\mod.rs src\arch\gdt.rs src\arch\idt.rs src\arch\exceptions.rs src\arch\io.rs src\arch\interrupts.rs src\arch\apic.rs src\arch\interrupt_dispatcher.rs src\arch\context.rs src\arch\ioapic.rs src\memory\mod.rs src\memory\pmm.rs src\memory\vmm.rs src\memory\heap.rs src\serial.rs src\sync\mod.rs src\sync\scheduler.rs src\sync\spinlock.rs src\thread.rs src\drivers\mod.rs src\drivers\keyboard.rs src\drivers\mouse.rs src\drivers\pci.rs src\drivers\framebuffer.rs src\drivers\font.rs src\drivers\console.rs src\drivers\gui.rs src\fs\mod.rs src\fs\ramdisk.rs src\fs\vfs.rs src\fs\vikingfs.rs src\process\mod.rs src\syscall\mod.rs src\storage\mod.rs src\storage\partition.rs src\storage\ata.rs src\apps\mod.rs src\apps\terminal.rs src\apps\file_explorer.rs src\apps\vikingpad.rs src\apps\task_manager.rs src\apps\browser.rs src\apps\app_store.rs src\installer\mod.rs src\net\mod.rs src\net\ethernet.rs src\net\arp.rs src\net\ipv4.rs src\net\icmp.rs src\net\udp.rs src\net\tcp.rs src\net\http.rs src\net\virtio_net.rs
 
-D:\GitHub\VikingOS\kernel\target\x86_64-unknown-none\debug\build\viking_kernel/fd286c5bb2d46a85\out\libviking_kernel-fd286c5bb2d46a85.rmeta: src\main.rs src\arch\mod.rs src\arch\gdt.rs src\arch\idt.rs src\arch\exceptions.rs src\arch\io.rs src\arch\interrupts.rs src\arch\apic.rs src\arch\interrupt_dispatcher.rs src\arch\context.rs src\arch\ioapic.rs src\memory\mod.rs src\memory\pmm.rs src\memory\vmm.rs src\memory\heap.rs src\serial.rs src\sync\mod.rs src\sync\scheduler.rs src\sync\spinlock.rs src\thread.rs src\drivers\mod.rs src\drivers\keyboard.rs src\drivers\mouse.rs src\drivers\pci.rs src\drivers\framebuffer.rs src\drivers\font.rs src\drivers\console.rs src\drivers\gui.rs src\fs\mod.rs src\fs\ramdisk.rs src\fs\vfs.rs src\fs\vikingfs.rs src\process\mod.rs src\syscall\mod.rs src\storage\mod.rs src\storage\partition.rs src\storage\ata.rs src\apps\mod.rs src\apps\terminal.rs src\apps\file_explorer.rs src\apps\vikingpad.rs src\apps\task_manager.rs src\installer\mod.rs
+D:\GitHub\VikingOS\kernel\target\x86_64-unknown-none\debug\build\viking_kernel/fd286c5bb2d46a85\out\libviking_kernel-fd286c5bb2d46a85.rmeta: src\main.rs src\arch\mod.rs src\arch\gdt.rs src\arch\idt.rs src\arch\exceptions.rs src\arch\io.rs src\arch\interrupts.rs src\arch\apic.rs src\arch\interrupt_dispatcher.rs src\arch\context.rs src\arch\ioapic.rs src\memory\mod.rs src\memory\pmm.rs src\memory\vmm.rs src\memory\heap.rs src\serial.rs src\sync\mod.rs src\sync\scheduler.rs src\sync\spinlock.rs src\thread.rs src\drivers\mod.rs src\drivers\keyboard.rs src\drivers\mouse.rs src\drivers\pci.rs src\drivers\framebuffer.rs src\drivers\font.rs src\drivers\console.rs src\drivers\gui.rs src\fs\mod.rs src\fs\ramdisk.rs src\fs\vfs.rs src\fs\vikingfs.rs src\process\mod.rs src\syscall\mod.rs src\storage\mod.rs src\storage\partition.rs src\storage\ata.rs src\apps\mod.rs src\apps\terminal.rs src\apps\file_explorer.rs src\apps\vikingpad.rs src\apps\task_manager.rs src\apps\browser.rs src\apps\app_store.rs src\installer\mod.rs src\net\mod.rs src\net\ethernet.rs src\net\arp.rs src\net\ipv4.rs src\net\icmp.rs src\net\udp.rs src\net\tcp.rs src\net\http.rs src\net\virtio_net.rs
 
 src\main.rs:
 src\arch\mod.rs:
@@ -44,4 +44,15 @@ src\apps\terminal.rs:
 src\apps\file_explorer.rs:
 src\apps\vikingpad.rs:
 src\apps\task_manager.rs:
+src\apps\browser.rs:
+src\apps\app_store.rs:
 src\installer\mod.rs:
+src\net\mod.rs:
+src\net\ethernet.rs:
+src\net\arp.rs:
+src\net\ipv4.rs:
+src\net\icmp.rs:
+src\net\udp.rs:
+src\net\tcp.rs:
+src\net\http.rs:
+src\net\virtio_net.rs:

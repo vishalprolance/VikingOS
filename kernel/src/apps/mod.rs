@@ -8,3 +8,5 @@ pub mod terminal;
 pub mod file_explorer;
 pub mod vikingpad;
 pub mod task_manager;
+pub mod browser;
+pub mod app_store;

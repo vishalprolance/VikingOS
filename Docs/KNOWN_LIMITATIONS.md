@@ -11,27 +11,27 @@ The following core subsystems are functional and operational in the kernel:
 - ✅ **Input Devices**: PS/2 Keyboard scancode decoder
 - ✅ **Graphics & Display**: Linear Framebuffer, 8x8 font, on-screen console, 2D GUI canvas & desktop preview
 - ✅ **Multitasking**: AMD64 context switching, preemptive round-robin scheduler, thread state tracking
-- ✅ **Storage & VFS**: `BlockDevice` trait, VirtIO block driver, VFS abstractions, in-memory Ramdisk
+- ✅ **Storage & VFS**: `BlockDevice` trait, VirtIO block driver, VFS abstractions, native persistent VikingFS
 - ✅ **User-Mode**: Ring 3 transition frame preparation, fast `syscall`/`sysret` MSR configuration & dispatcher
+- ✅ **Desktop GUI Compositor**: Multi-window manager, Z-ordering, taskbar, start menu, double-buffered canvas, PS/2 mouse cursor
+- ✅ **Networking Subsystem**: VirtIO-Net PCI driver, Ethernet II, ARP, IPv4, ICMP (ping), UDP, TCP, HTTP/1.1 client
+- ✅ **Desktop Web Browser**: Brave-style tabbed navigator, URL Omnibox with SSL lock, privacy shields, HTML rendering
+- ✅ **Software Center & App Store**: One-click HTTP package downloader, checksum verification, and persistent VikingFS installer
 
 ---
 
-## Current Limitations & Next Steps
+## Technical Constraints & Reverse Engineering Analysis: Running Existing Chrome / Brave / External Binaries
 
-### 1. GUI & Compositor (Milestone 10)
-- **Static Window Layout**: Windows and Taskbar are currently drawn once on boot; dynamic drag-and-drop window movement and mouse event dispatching are being added in Milestone 10.
-- **PS/2 Mouse Driver**: Mouse packet parser is pending to support hardware cursor movement.
+### 1. Why Existing Unmodified Chrome / Brave Binaries Cannot Run Directly on a Custom OS Kernel
+Existing browsers like Google Chrome or Brave are built on top of **Chromium** (over 35 million lines of C++ code). A binary reverse engineering inspection reveals that existing Chrome binaries (`chrome` on Linux, `chrome.exe` on Windows) are not standalone programs; they are host-system orchestrators with extreme dependency trees:
+- **Foreign ABI & Dynamic Linking**: Linux Chrome is an ELF64 executable dynamically linked against `glibc`, `libstdc++`, `libX11`, `libwayland`, `libasound`, `libgtk-3`, `libnss3`, and dozens of system shared objects.
+- **Syscall Interception Requirements**: Chromium issues over 150+ Linux syscalls (`sys_clone` with user namespaces, `sys_futex`, `sys_epoll_ctl`, `sys_seccomp` sandboxing, `sys_mmap`, `sys_socket`, `sys_connect`). On VikingOS, foreign syscall IDs do not match unless a kernel-level Linux ABI translation layer (like FreeBSD's Linuxulator or Microsoft's WSL1) is implemented.
+- **Display & Graphics Stack**: Chrome delegates all hardware rendering and window management to an X11 server or Wayland compositor using shared memory buffers (`wl_shm`) or GPU hardware textures (DRM / KMS / Mesa).
+- **Memory Footprint**: Modern Chromium requires a minimum of 2 GB of RAM just to initialize its multi-process sandbox architecture.
 
-### 2. User-Mode Application Execution
-- **Embedded vs ELF Binary**: User processes are currently simulated via embedded binary structures; a full ELF64/PE parser for disk-loaded executables is the next step.
-- **Preemptive Return from Ring 3**: Timer interrupts during user mode will save user context and return via `sysretq`/`iretq`.
+### 2. Roadmap to Foreign Binary Execution on VikingOS
+To achieve binary execution of external binaries on VikingOS, the following architectural milestones are planned:
+1. **Dynamic ELF64 Loader**: Map standard Linux ELF binaries into user-space virtual memory and resolve PLT/GOT relocations.
+2. **Linux Syscall Emulation Layer (WSL1-Style)**: Intercept Linux system call numbers inside the `syscall` MSR dispatcher and translate them into native VikingOS kernel primitives.
+3. **Lightweight Browser Engines**: Porting lighter open-source layout engines (such as NetSurf, Ladybird, or lightweight WebAssembly runtimes) that do not require multi-gigabyte browser stacks.
 
-### 3. Storage & Filesystems
-- **Read-Only Ramdisk**: The currently mounted filesystem is a read-only ramdisk. Read/write support on partitionable block media (e.g. FAT32 or VikingFS) is scheduled for Milestone 12.
-- **AHCI / NVMe**: Hardware block access is currently focused on VirtIO; native SATA/AHCI and NVMe controllers are future drivers.
-
-### 4. Networking
-- **No Network Stack**: No Ethernet controller drivers (e.g. e1000, virtio-net) or TCP/IP stack implemented yet.
-
-### 5. Windows Compatibility Subsystem
-- **No PE32+ Loader**: Executables currently use internal binary format; PE loader and Win32 emulation will follow in Phase 3.

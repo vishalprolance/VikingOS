@@ -42,11 +42,7 @@ pub extern "C" fn rust_hardware_interrupt_dispatcher(vector: u8) {
 
 /// Handler for the LAPIC timer interrupt.
 fn handle_timer_interrupt() {
-    let ticks = TICKS.fetch_add(1, Ordering::Relaxed) + 1;
-    // Print a tick every 100 ticks to avoid flooding the serial port
-    if ticks % 100 == 0 {
-        kprintln!("[Timer] Tick count: {}", ticks);
-    }
+    TICKS.fetch_add(1, Ordering::Relaxed);
 }
 
 /// Retrieve current timer tick count (100Hz = 10ms per tick).

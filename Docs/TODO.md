@@ -28,6 +28,9 @@ This document tracks all completed and planned features for **VikingOS**, an ind
 | **M10** | **Window Server & Desktop GUI** | ✅ Completed | Full window compositor, movable windows, start menu, VikingUI, PS/2 mouse cursor |
 | **M11** | **System Applications** | ✅ Completed | Viking Prompt shell, File Explorer, VikingPad editor, Task Manager |
 | **M12** | **Installer & Persistence** | ✅ Completed | MBR partitioner, native VikingFS block filesystem, guided disk installer wizard |
+| **M13** | **Network Stack & VirtIO-Net** | ✅ Completed | VirtIO Ethernet driver, Ethernet II, ARP, IPv4, ICMP, UDP, TCP, NetStack |
+| **M14** | **Brave Web Browser** | ✅ Completed | Tabbed web browser, URL omnibox, Brave Shields, HTML layout renderer |
+| **M15** | **App Store & Downloader** | ✅ Completed | Software Center, HTTP package downloader, one-click install to VikingFS |
 
 ---
 
@@ -295,10 +298,68 @@ For each feature in the list below:
 
 ---
 
+---
+
+### Milestone 13: TCP/IP Network Subsystem & VirtIO-Net Driver
+
+- [x] **Feature 13.1 — Ethernet & Physical Layer (VirtIO-Net)** (`kernel/src/net/virtio_net.rs`, `kernel/src/net/ethernet.rs`)
+  - [x] PCI bus discovery for VirtIO network card (`0x1AF4:0x1000` / `0x1041`) and Intel e1000 (`0x8086:0x100E`)
+  - [x] Ethernet II framing with 14-byte MAC header and EtherType dispatch (`0x0800` IPv4, `0x0806` ARP)
+  - [x] Transmit (`transmit`) and Receive (`receive`) raw packet buffers with TX/RX statistics tracking
+- [x] **Feature 13.2 — Address Resolution Protocol (ARP)** (`kernel/src/net/arp.rs`)
+  - [x] ARP request generation and ARP reply frame decoding
+  - [x] Dynamic ARP cache table mapping IPv4 addresses to MAC hardware addresses
+- [x] **Feature 13.3 — IPv4 & ICMP Protocol Stack** (`kernel/src/net/ipv4.rs`, `kernel/src/net/icmp.rs`)
+  - [x] 20-byte IPv4 packet parser with Internet Checksum one's-complement calculation
+  - [x] ICMP Echo Request and Echo Reply parser/builder supporting diagnostic `ping`
+- [x] **Feature 13.4 — Transport & Application Layer (UDP, TCP, HTTP)** (`kernel/src/net/udp.rs`, `kernel/src/net/tcp.rs`, `kernel/src/net/http.rs`, `kernel/src/net/mod.rs`)
+  - [x] UDP datagram packet building and port routing
+  - [x] TCP segment encoding with sequence numbers, acknowledgement numbers, and flags (`SYN`, `ACK`, `FIN`, `RST`)
+  - [x] HTTP/1.1 client request engine formatting `GET` requests and parsing responses (status codes, headers, body)
+  - [x] Global `NetStack` manager configuring interface: IP `192.168.1.100`, Netmask `255.255.255.0`, Gateway `192.168.1.1`, DNS `8.8.8.8`
+
+---
+
+### Milestone 14: Desktop Web Browser ("Viking Brave")
+
+- [x] **Feature 14.1 — Brave-Style UI Compositing** (`kernel/src/apps/browser.rs`)
+  - [x] Sleek dark-mode theme (`#1A1B20`), multi-tab browsing strip, and orange Brave lion brand accent
+  - [x] Interactive Omnibox URL address bar with SSL padlock security indicator (`LOCK`)
+  - [x] Navigation toolbar: Back (`<`), Forward (`>`), Reload (`R`), and Brave Shield toggle badge
+  - [x] Quick Bookmarks toolbar: `[ Viking Hub ]`, `[ App Store ]`, `[ Google ]`, `[ GitHub ]`
+- [x] **Feature 14.2 — HTML Layout & Hyperlink Engine** (`kernel/src/apps/browser.rs`)
+  - [x] HTML markup parser and layout engine rendering titles, headings, and styled paragraphs
+  - [x] Interactive hyperlink hit-testing and page navigation on click
+  - [x] Direct package installation hooks: Clicking `[Download & Install]` launches the Software Center and initiates download!
+
+---
+
+### Milestone 15: Viking Software Center & App Store
+
+- [x] **Feature 15.1 — Application Catalog & Package Management** (`kernel/src/apps/app_store.rs`)
+  - [x] Catalog of downloadable software: Doom (Viking 3D), VikingCalc, HexDisasm, Minesweeper, VikingPy, RetroSynth
+  - [x] Package metadata presentation: categories, versions, sizes, descriptions, and color-coded badges
+- [x] **Feature 15.2 — Real-Time Download & Install Engine** (`kernel/src/apps/app_store.rs`)
+  - [x] Network download state machine: Available -> Downloading (animated progress bar & percentage) -> Verifying -> Installed
+  - [x] Deploys application packages directly to persistent VikingFS filesystem (`/Apps/<name>.bin`)
+  - [x] `LAUNCH` button to execute installed applications on the fly
+
+---
+
+### Milestone 16: Interactive Shell Network Commands
+
+- [x] **Feature 16.1 — Terminal Commands** (`kernel/src/apps/terminal.rs`)
+  - [x] `ifconfig` / `netstat`: Displays hardware MAC, IPv4, Netmask, Gateway, DNS, and TX/RX packet counters
+  - [x] `ping <ip>`: Sends ICMP echo requests and prints round-trip time latency
+  - [x] `curl <url>`: Fetches remote web pages via HTTP GET and prints response status and payload
+  - [x] `pkg list` / `pkg get <app>`: Command-line software package manager downloading and deploying apps directly to VikingFS
+
+---
+
 ## 🔮 Future Enhancements (Post-1.0 Roadmap)
 
+- [ ] **Dynamic ELF64 Loader**: Executable and Linkable Format 64-bit user binary parser with dynamic linking
+- [ ] **Linux Syscall Emulation Layer (WSL1-Style)**: Intercepting foreign Linux syscalls to run unmodified command-line utilities
 - [ ] **SMP Multicore Support**: ACPI MADT parsing, APIC startup IPIs (INIT-SIPI-SIPI), per-core runqueues
-- [ ] **Network Stack**: VirtIO-Net driver, Ethernet frame parser, ARP, IPv4, UDP, and TCP sockets
-- [ ] **Dynamic ELF Loader**: Executable and Linkable Format 64-bit user binary parser with dynamic linking
-- [ ] **POSIX Compatibility Layer**: Standard libc interface for running ported user tools
+
 
