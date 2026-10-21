@@ -40,8 +40,8 @@ pub fn save_and_disable() -> bool {
         core::arch::asm!(
             "pushfq",
             "pop {0}",
+            "cli",
             out(reg) flags,
-            options(preserves_flags),
             options(nomem, nostack),
         );
     }

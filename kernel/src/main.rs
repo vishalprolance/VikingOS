@@ -24,6 +24,7 @@ mod syscall;
 mod storage;
 mod apps;
 mod installer;
+pub mod net;
 
 use core::fmt::Write;
 use core::panic::PanicInfo;
@@ -484,6 +485,11 @@ extern "C" fn _start() -> ! {
     crate::sync::scheduler::spawn_thread(thread_b);
     kprintln!("[  OK  ] Scheduler initialized with test threads");
 
+    // ── Network Stack Initialization (Milestone 13) ──────────────
+    kprintln!("");
+    kprintln!("[ INIT ] Initializing TCP/IP Network Stack & VirtIO-Net...");
+    net::init();
+
     // ── Desktop GUI & Window Compositor (Milestone 10 & 11) ────
     kprintln!("");
     kprintln!("[ INIT ] Launching Viking Desktop & System Applications...");
@@ -509,11 +515,13 @@ extern "C" fn _start() -> ! {
             let mut term_app = apps::terminal::TerminalApp::new();
             term_app.execute("help");
             term_app.execute("mem");
-            term_app.execute("ls");
+            term_app.execute("ifconfig");
 
             let mut explorer_app = apps::file_explorer::FileExplorerApp::new();
             let mut pad_app = apps::vikingpad::VikingPadApp::new();
             let mut task_mgr_app = apps::task_manager::TaskManagerApp::new();
+            let mut browser_app = apps::browser::BrowserApp::new();
+            let mut app_store_app = apps::app_store::AppStoreApp::new();
 
             // Start with a clean desktop featuring double-clickable desktop icons and the taskbar!
             let free_kb = crate::memory::pmm::get_stats().free_bytes / 1024;
@@ -574,6 +582,10 @@ extern "C" fn _start() -> ! {
                         // VikingPad is active
                         pad_app.handle_key(c);
                         needs_redraw = true;
+                    } else if let Some(6) = wm.active_window {
+                        // Brave Browser is active
+                        browser_app.handle_key(c);
+                        needs_redraw = true;
                     } else if c == '\n' || c == '\r' {
                         if let Some(4) = wm.active_window {
                             // Enter on Installer triggers reboot if completed
@@ -583,9 +595,15 @@ extern "C" fn _start() -> ! {
                         } else if let Some(0) = wm.active_window {
                             term_app.handle_key(c);
                             needs_redraw = true;
+                        } else if let Some(6) = wm.active_window {
+                            browser_app.handle_key(c);
+                            needs_redraw = true;
                         }
                     } else if wm.active_window == Some(0) {
                         term_app.handle_key(c);
+                        needs_redraw = true;
+                    } else if wm.active_window == Some(6) {
+                        browser_app.handle_key(c);
                         needs_redraw = true;
                     }
                 }
@@ -643,6 +661,7 @@ extern "C" fn _start() -> ! {
                                 if my >= win.y + titlebar_h {
                                     let rel_x = mx.saturating_sub(win.x + 4);
                                     let rel_y = my.saturating_sub(win.y + titlebar_h + 4);
+                                    let content_w = win.width.saturating_sub(8);
                                     match act_id {
                                         1 => {
                                             explorer_app.handle_click(rel_x, rel_y);
@@ -650,6 +669,17 @@ extern "C" fn _start() -> ! {
                                         }
                                         3 => {
                                             task_mgr_app.handle_click(rel_x, rel_y);
+                                            needs_redraw = true;
+                                        }
+                                        6 => {
+                                            if let Some(target_app) = browser_app.handle_click(rel_x, rel_y, content_w) {
+                                                wm.open_or_focus_app(7, screen_w, screen_h);
+                                                app_store_app.install_by_id(&target_app);
+                                            }
+                                            needs_redraw = true;
+                                        }
+                                        7 => {
+                                            app_store_app.handle_click(rel_x, rel_y, content_w);
                                             needs_redraw = true;
                                         }
                                         _ => {}
@@ -685,15 +715,16 @@ extern "C" fn _start() -> ! {
                 if cur_tick >= last_tick + 20 {
                     last_tick = cur_tick;
                     task_mgr_app.update(cur_tick);
+                    if app_store_app.is_downloading {
+                        app_store_app.update();
+                    }
                     needs_redraw = true;
                 }
 
                 if needs_redraw {
                     let free_kb = crate::memory::pmm::get_stats().free_bytes / 1024;
-                    let seconds = cur_tick / 100;
-
                     // Update Taskbar clock and system stats
-                    wm.render(&mut canvas, screen_w, screen_h, seconds, free_kb);
+                    wm.render(&mut canvas, screen_w, screen_h, cur_tick, free_kb);
 
                     // Redraw windows with correct Z-ordering:
                     // 1. Draw inactive windows' client contents first
@@ -708,6 +739,8 @@ extern "C" fn _start() -> ! {
                                         3 => task_mgr_app.draw(w, &mut canvas),
                                         4 => installer.draw(w, &mut canvas),
                                         5 => drivers::gui::draw_system_properties(w, &mut canvas),
+                                        6 => browser_app.draw(w, &mut canvas),
+                                        7 => app_store_app.draw(w, &mut canvas),
                                         _ => {}
                                     }
                                 }
@@ -725,6 +758,8 @@ extern "C" fn _start() -> ! {
                                     3 => task_mgr_app.draw(w, &mut canvas),
                                     4 => installer.draw(w, &mut canvas),
                                     5 => drivers::gui::draw_system_properties(w, &mut canvas),
+                                    6 => browser_app.draw(w, &mut canvas),
+                                    7 => app_store_app.draw(w, &mut canvas),
                                     _ => {}
                                 }
                             }

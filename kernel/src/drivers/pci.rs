@@ -62,19 +62,40 @@ impl PciDevice {
 pub fn scan_pci() -> Vec<PciDevice> {
     let mut devices = Vec::new();
 
-    for bus in 0..=255 {
+    // Scan PCI buses 0..32 (standard x86 VM / hardware topology)
+    for bus in 0..=31 {
         for slot in 0..32 {
-            for func in 0..8 {
-                let vendor_id = unsafe { read_config_16(bus, slot, func, PCI_CONFIG_VENDOR_ID) };
-                if vendor_id != 0xFFFF {
-                    let device_id = unsafe { read_config_16(bus, slot, func, PCI_CONFIG_DEVICE_ID) };
-                    devices.push(PciDevice {
-                        bus,
-                        slot,
-                        function: func,
-                        vendor_id,
-                        device_id,
-                    });
+            let vendor_id = unsafe { read_config_16(bus, slot, 0, PCI_CONFIG_VENDOR_ID) };
+            if vendor_id == 0xFFFF {
+                // Function 0 not present: device cannot exist in this slot
+                continue;
+            }
+
+            let device_id = unsafe { read_config_16(bus, slot, 0, PCI_CONFIG_DEVICE_ID) };
+            devices.push(PciDevice {
+                bus,
+                slot,
+                function: 0,
+                vendor_id,
+                device_id,
+            });
+
+            // Check if multi-function device (bit 7 of Header Type register at 0x0E)
+            let header_type = unsafe { (read_config_16(bus, slot, 0, 0x0E) & 0xFF) as u8 };
+            if (header_type & 0x80) != 0 {
+                // Multi-function device: probe functions 1..7
+                for func in 1..8 {
+                    let v_id = unsafe { read_config_16(bus, slot, func, PCI_CONFIG_VENDOR_ID) };
+                    if v_id != 0xFFFF {
+                        let d_id = unsafe { read_config_16(bus, slot, func, PCI_CONFIG_DEVICE_ID) };
+                        devices.push(PciDevice {
+                            bus,
+                            slot,
+                            function: func,
+                            vendor_id: v_id,
+                            device_id: d_id,
+                        });
+                    }
                 }
             }
         }

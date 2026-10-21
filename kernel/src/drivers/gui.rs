@@ -360,7 +360,7 @@ pub struct StartMenu {
     pub x: usize,
     pub width: usize,
     pub height: usize,
-    pub items: [(&'static str, &'static str); 6],
+    pub items: [(&'static str, &'static str); 8],
 }
 
 impl StartMenu {
@@ -369,14 +369,16 @@ impl StartMenu {
             visible: false,
             x: 0,
             width: 210,
-            height: 194,
+            height: 246,
             items: [
                 ("1. Viking Prompt", "Terminal Shell"),
                 ("2. File Explorer", "Drives & Storage Browser"),
                 ("3. VikingPad", "Text Editor"),
                 ("4. Task Manager", "Performance Monitor"),
-                ("5. Reboot System", "Soft Reset"),
-                ("6. Shut Down", "Power Off"),
+                ("5. Brave Browser", "Web Navigator"),
+                ("6. Software Center", "App Store"),
+                ("7. Reboot System", "Soft Reset"),
+                ("8. Shut Down", "Power Off"),
             ],
         }
     }
@@ -405,8 +407,8 @@ impl StartMenu {
         // Menu items
         for (i, (title, _subtitle)) in self.items.iter().enumerate() {
             let item_y = y + 30 + (i * 26);
-            let bg_col = if i == 5 { 0x3E1818 } else if i == 4 { 0x332A18 } else { 0x2A2A2A };
-            let text_col = if i == 5 { 0xFF8A80 } else if i == 4 { 0xFFD54F } else { 0xEEEEEE };
+            let bg_col = if i == 7 { 0x3E1818 } else if i == 6 { 0x332A18 } else if i == 4 { 0x3E2215 } else if i == 5 { 0x1A233A } else { 0x2A2A2A };
+            let text_col = if i == 7 { 0xFF8A80 } else if i == 6 { 0xFFD54F } else if i == 4 { 0xFF7043 } else if i == 5 { 0x8C9EFF } else { 0xEEEEEE };
             canvas.draw_rect(self.x + 4, item_y, self.width - 8, 22, bg_col);
             canvas.draw_text(self.x + 10, item_y + 6, title, text_col);
         }
@@ -585,11 +587,13 @@ impl DesktopIcon {
     }
 }
 
-pub const DEFAULT_DESKTOP_ICONS: [DesktopIcon; 4] = [
+pub const DEFAULT_DESKTOP_ICONS: [DesktopIcon; 6] = [
     DesktopIcon::new(0, "Terminal", ">_", 24, 24, 0x1E2428),
     DesktopIcon::new(1, "Explorer", "FS", 24, 104, 0xE65100),
     DesktopIcon::new(2, "VikingPad", "PAD", 24, 184, 0x1565C0),
     DesktopIcon::new(3, "Task Mgr", "CPU", 24, 264, 0x2E7D32),
+    DesktopIcon::new(6, "Brave Web", "WEB", 24, 344, 0xFF5500),
+    DesktopIcon::new(7, "App Store", "APP", 24, 424, 0x7B1FA2),
 ];
 
 /// Right-click Desktop Context Menu
@@ -664,13 +668,13 @@ impl ContextMenu {
 
 /// Comprehensive Window Manager & Desktop Compositor.
 pub struct WindowManager {
-    pub windows: [Option<Window>; 8],
+    pub windows: [Option<Window>; 10],
     pub active_window: Option<usize>,
     pub dragging_id: Option<usize>,
     pub drag_offset_x: usize,
     pub drag_offset_y: usize,
     pub resizing_id: Option<usize>,
-    pub icons: [DesktopIcon; 4],
+    pub icons: [DesktopIcon; 6],
     pub selected_icon: Option<usize>,
     pub last_icon_click_id: Option<usize>,
     pub last_icon_click_time: u64,
@@ -682,7 +686,7 @@ pub struct WindowManager {
 impl WindowManager {
     pub const fn new() -> Self {
         Self {
-            windows: [None; 8],
+            windows: [None, None, None, None, None, None, None, None, None, None],
             active_window: None,
             dragging_id: None,
             drag_offset_x: 0,
@@ -722,7 +726,7 @@ impl WindowManager {
     }
 
     pub fn open_or_focus_app(&mut self, app_id: usize, screen_w: usize, screen_h: usize) {
-        if app_id >= 5 {
+        if app_id >= 10 {
             return;
         }
         if let Some(ref mut win) = self.windows[app_id] {
@@ -735,6 +739,8 @@ impl WindowManager {
                 2 => Window::new(2, "VikingPad", 130, 100, 500.min(screen_w.saturating_sub(140)), 320.min(screen_h.saturating_sub(150)), 0xFAFAFA),
                 3 => Window::new(3, "Task Manager", 170, 130, 500.min(screen_w.saturating_sub(180)), 340.min(screen_h.saturating_sub(160)), 0x1E2428),
                 4 => Window::new(4, "VikingOS Installer", 70, 50, 540.min(screen_w.saturating_sub(80)), 400.min(screen_h.saturating_sub(90)), 0xF5F7F8),
+                6 => Window::new(6, "Brave Browser", 50, 35, 680.min(screen_w.saturating_sub(60)), 460.min(screen_h.saturating_sub(75)), 0x1A1B20),
+                7 => Window::new(7, "Software Center", 90, 60, 620.min(screen_w.saturating_sub(100)), 420.min(screen_h.saturating_sub(100)), 0x1E2428),
                 _ => return,
             };
             self.windows[app_id] = Some(win);
@@ -864,12 +870,18 @@ impl WindowManager {
         let taskbar_y = screen_h.saturating_sub(self.taskbar.height);
         if let Some(item_idx) = self.start_menu.hit_test(px, py, taskbar_y) {
             self.start_menu.visible = false;
-            if item_idx == 4 {
-                // 5. Reboot System
+            if item_idx == 6 {
+                // 7. Reboot System
                 return Some(DesktopAction::Reboot);
-            } else if item_idx == 5 {
-                // 6. Shut Down
+            } else if item_idx == 7 {
+                // 8. Shut Down
                 return Some(DesktopAction::Shutdown);
+            } else if item_idx == 4 {
+                // 5. Brave Browser
+                return Some(DesktopAction::LaunchApp(6));
+            } else if item_idx == 5 {
+                // 6. Software Center
+                return Some(DesktopAction::LaunchApp(7));
             } else {
                 return Some(DesktopAction::LaunchApp(item_idx));
             }

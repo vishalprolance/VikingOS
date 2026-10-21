@@ -102,11 +102,15 @@ impl SerialPort {
     /// Write a single byte, waiting for the transmit buffer to be ready.
     pub fn write_byte(&self, byte: u8) {
         unsafe {
-            // Spin until the transmit holding register is empty
-            while (inb(self.port + LSR_OFFSET) & LSR_THRE) == 0 {
+            // Spin until the transmit holding register is empty or timeout
+            let mut timeout = 100_000;
+            while (inb(self.port + LSR_OFFSET) & LSR_THRE) == 0 && timeout > 0 {
                 core::hint::spin_loop();
+                timeout -= 1;
             }
-            outb(self.port, byte);
+            if timeout > 0 {
+                outb(self.port, byte);
+            }
         }
     }
 
